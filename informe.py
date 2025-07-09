@@ -51,6 +51,9 @@ class Informe():
         self.content.append(Paragraph(text, message_style))
         self.content.append(Spacer(1, 12))
 
+    def add_spacer(self, height=12):
+        self.content.append(Spacer(1, height))
+
     def add_list(self, items):
         if not items:
             self.content.append(Paragraph("Sin lista", normal_style))
