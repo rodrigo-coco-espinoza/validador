@@ -4,6 +4,7 @@ from informe import Informe
 from pprint import pprint
 from tkinter import Tk, filedialog
 import re
+import sys
 
 
 class Validador:
@@ -313,8 +314,32 @@ class Validador:
         print("Informe generado con éxito.")
 
 if __name__ == "__main__":
-    validador = Validador(None, None, "RUTDEPRUEBAS.CSV")
-    validador.run_validations()
+    # Verificar si se pasaron argumentos desde la línea de comandos
+    if len(sys.argv) == 4:
+        # Usar argumentos de línea de comandos: archivo_datos, validaciones, ruts_prueba
+        archivo_datos = sys.argv[1]
+        archivo_validaciones = sys.argv[2]
+        archivo_ruts_prueba = sys.argv[3]
+        
+        print(f"Ejecutando validaciones con:")
+        print(f"- Archivo de datos: {archivo_datos}")
+        print(f"- Archivo de validaciones: {archivo_validaciones}")
+        print(f"- Archivo de RUTs de prueba: {archivo_ruts_prueba}")
+        
+        validador = Validador(archivo_datos, archivo_validaciones, archivo_ruts_prueba)
+        validador.run_validations()
+    elif len(sys.argv) == 1:
+        # Modo interactivo (sin argumentos) - usar selección de archivos
+        print("Modo interactivo: seleccione los archivos manualmente")
+        validador = Validador(None, None, "RUTDEPRUEBAS.CSV")
+        validador.run_validations()
+    else:
+        # Mostrar ayuda si el número de argumentos es incorrecto
+        print("Uso del programa:")
+        print("  Modo CLI: python validaciones.py <archivo_datos> <archivo_validaciones> <archivo_ruts_prueba>")
+        print("  Ejemplo:  python validaciones.py catastro_ciren.csv validaciones_ciren.csv RUTDEPRUEBA.csv")
+        print("  Modo interactivo: python validaciones.py (sin argumentos)")
+        sys.exit(1)
 
 
     
