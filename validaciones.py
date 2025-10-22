@@ -55,7 +55,7 @@ class Validador:
         
         return function, param
 
-    # Funciones generales (archivo completo)
+    # Funciones describe (archivo completo)
     def describir_archivo(self):
         """
         Describe el archivo cargado, incluyendo nombre, fecha, gabinete y número de filas y columnas.
@@ -69,6 +69,17 @@ class Validador:
         self.informe.add_sentence(f"Número de columnas: {len(self.df.columns)}")
         self.informe.add_sentence(f"Columnas:")
         self.informe.add_list(self.df.columns.tolist())
+
+
+        # Rut máximo
+    
+        # Rut minimo
+        a = 1
+
+        # Rut entre 30 y 40 millones
+
+
+
 
     def validate_filename(self, _, expected_pattern):
         """
