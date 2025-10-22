@@ -173,7 +173,7 @@ cython_debug/
 
 # Generated reports and outputs
 *.pdf
-*.txt
+.txt
 *.docx
 informe_*.txt
 validaciones_*.pdf
