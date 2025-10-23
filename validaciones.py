@@ -40,6 +40,8 @@ class Validador:
             "validate_menor_igual_a": self.validate_menor_igual_a,
             "validate_sin_valores_repetidos": self.validate_sin_valores_repetidos,
             "validate_pertenece_a_categorias": self.validate_pertenece_a_categorias,
+            "describe_rut": self.describe_rut,
+            "comparar_filas_con_otro_archivo": self.comparar_filas_con_otro_archivo
         }
         
 
@@ -60,6 +62,7 @@ class Validador:
         """
         Describe el archivo cargado, incluyendo nombre, fecha, gabinete y número de filas y columnas.
         """
+        print("Describiendo archivo...")
 
         self.informe.add_heading("Descripción del archivo")
         self.informe.add_sentence(f"Nombre del archivo: {self.file_path.split('/')[-1]}")
@@ -69,6 +72,60 @@ class Validador:
         self.informe.add_sentence(f"Número de columnas: {len(self.df.columns)}")
         self.informe.add_sentence(f"Columnas:")
         self.informe.add_list(self.df.columns.tolist())
+
+    def describe_rut(self, column_name, _):
+        """
+        Describe la columna de RUTs, incluyendo número de RUTs únicos y ejemplos.
+        """
+
+        print(f"Describiendo columna de RUTs: {column_name}")
+
+        self.informe.add_heading(f"Descripción de la columna de RUTs: {column_name}")
+        num_unique_ruts = self.df[column_name].nunique()
+        self.informe.add_sentence(f"Número de RUTs únicos: {num_unique_ruts:,}".replace(",", "."))
+        
+        # Rut máximo y mínimo (formateados con separador de miles)
+        def _format_rut(v):
+            if pd.isna(v):
+                return ""
+            try:
+                iv = int(v)
+                return f"{iv:,}".replace(",", ".")
+            except Exception:
+                s = str(v)
+                digits = re.sub(r"\D", "", s)
+                if digits:
+                    return f"{int(digits):,}".replace(",", ".")
+                return s
+
+        rut_max = self.df[column_name].max()
+        rut_min = self.df[column_name].min()
+        self.informe.add_sentence(f"RUT máximo: {_format_rut(rut_max)}")
+        self.informe.add_sentence(f"RUT mínimo: {_format_rut(rut_min)}")
+
+        # Número de ruts persona jurídica (>= 50000000) 
+        num_ruts_juridicos = self.df[self.df[column_name] >= 50000000][column_name].nunique()
+        self.informe.add_sentence(f"Número de RUTs de persona jurídica: {num_ruts_juridicos:,}".replace(",", "."))
+
+        # RUTs entre [30000000, 40000000]
+        num_ruts_entre_30_40 = self.df[(self.df[column_name] >= 30000000) & (self.df[column_name] < 40000000)][column_name].nunique()
+        self.informe.add_sentence(f"Número de RUTs entre 30.000.000 y 40.000.000: {num_ruts_entre_30_40:,}".replace(",", "."))
+
+    def comparar_filas_con_otro_archivo(self, _, __):
+        self.informe.add_heading("Comparación de filas con archivo mes anterior")
+
+        archivo_comparacion_path = FileSelector.select_file(self, title="Seleccione archivo para comparar filas")
+
+        if not archivo_comparacion_path:
+            self.informe.add_spaced_sentence("No se seleccionó ningún archivo para comparar filas.", red=True)
+            return
+
+        df_comparacion = FileSelector.load_file(self, archivo_comparacion_path)
+
+        diferencia_filas = len(self.df) - len(df_comparacion)
+        porcentaje_diferencia = (diferencia_filas / len(df_comparacion))
+        self.informe.add_sentence(f"Diferencia de filas respecto al archivo del mes anterior: {diferencia_filas:,} ({porcentaje_diferencia:.2%})".replace(",", "."))
+
 
     def validate_filename(self, _, expected_pattern):
         """
@@ -113,6 +170,8 @@ class Validador:
             Agrega un mensaje al informe indicando si existen filas repetidas.
         """
 
+        print("Validando filas repetidas...")
+
         self.informe.add_heading("Validación de filas repetidas en el archivo")
         if self.df.duplicated().sum() == 0:
             return self.informe.add_spaced_sentence("No existen filas repetidas en el archivo.")
@@ -125,6 +184,7 @@ class Validador:
         Returns:
             Agrega un mensaje al informe indicando si existen filas vacías.
         """
+        print("Validando filas vacías...")
         
         self.informe.add_heading("Validación de filas vacías en el archivo")
         if self.df.empty:
@@ -146,6 +206,8 @@ class Validador:
             Agrega un mensaje al informe indicando si el nombre de la columna coincide con el esperado.
 
         """
+        print("Validando nombres de columnas...")
+        
         expected_names_list = [name.strip() for name in expected_names.split(",")]
         columns_found = [col for col in expected_names_list if col in self.df.columns]
         columns_not_found = [col for col in expected_names_list if col not in self.df.columns]
@@ -162,7 +224,6 @@ class Validador:
         self.informe.add_spacer()
 
 
-
     def validate_column_type(self, column_name, expected_type):
         """
         Valida que el tipo de dato de la columna sea el esperado.
@@ -173,6 +234,8 @@ class Validador:
             bool: True si el tipo de dato de la columna es el esperado, False en caso contrario.
         """
 
+        print(f"Validando tipo de dato de la columna {column_name}...")
+        
         if expected_type not in ["texto", "entero", "decimal", "fecha"]:
             raise ValueError("Tipo de dato no válido.")
 
@@ -211,19 +274,50 @@ class Validador:
         Returns:
             list: Lista de RUTs que están en el archivo de RUTs de prueba.
         """
+        print("Validando RUTs falsos...")
         if not pd.api.types.is_integer_dtype(self.df[column_name]):
             raise TypeError("La columna no es numérica.")
-
-        ruts_prueba = self.ruts_prueba.iloc[:, 0].tolist()
-        ruts_df = self.df[column_name].tolist()
-        ruts_falsos = [rut for rut in ruts_df if rut in ruts_prueba]
         
-        if ruts_falsos:
-            return ruts_falsos
-        return True
+        self.informe.add_heading("Validación de RUTs falsos")
+
+        # Obtener RUTs de prueba como set para búsqueda O(1)
+        print(f"📋 Cargando RUTs de prueba desde archivo...")
+        ruts_prueba_set = set(self.ruts_prueba.iloc[:, 0])
+        print(f"✅ {len(ruts_prueba_set):,} RUTs de prueba cargados".replace(",", "."))
+        print(f"📄 Ejemplos de RUTs de prueba: {list(ruts_prueba_set)[:5]}...")
+        
+        # Obtener RUTs únicos de la columna para optimizar la búsqueda
+        print(f"🔍 Analizando columna '{column_name}'...")
+        total_ruts = len(self.df[column_name])
+        ruts_unicos = self.df[column_name].unique()
+        print(f"📊 Total de registros: {total_ruts:,}, RUTs únicos: {len(ruts_unicos):,}".replace(",", "."))
+        
+        # Usar intersección de sets para encontrar coincidencias (mucho más eficiente)
+        print(f"🚀 Buscando intersección entre RUTs de archivo y RUTs de prueba...")
+        ruts_unicos_set = set(ruts_unicos)
+        ruts_falsos_unicos = ruts_unicos_set.intersection(ruts_prueba_set)
+        
+        if ruts_falsos_unicos:
+            # Contar ocurrencias de cada RUT falso en el DataFrame original
+            print(f"⚠️  Encontrados {len(ruts_falsos_unicos)} RUTs falsos únicos, contando ocurrencias...")
+            mask_falsos = self.df[column_name].isin(ruts_falsos_unicos)
+            total_ocurrencias = mask_falsos.sum()
+            
+            print(f"❌ Total de ocurrencias de RUTs falsos: {total_ocurrencias:,}".replace(",", "."))
+            print(f"📋 RUTs falsos encontrados: {sorted(list(ruts_falsos_unicos))[:10]}{'...' if len(ruts_falsos_unicos) > 10 else ''}")
+            
+            self.informe.add_sentence(f"✗ Se encontraron {total_ocurrencias:,} ocurrencias de RUTs falsos en la columna ({len(ruts_falsos_unicos)} RUTs únicos).".replace(",", "."), red=True)
+            self.informe.add_sentence(f"RUTs falsos encontrados: {sorted(list(ruts_falsos_unicos))[:15]}{'...' if len(ruts_falsos_unicos) > 15 else ''}.", red=True)
+        else:
+            print(f"✅ No se encontraron RUTs falsos en la columna")
+            self.informe.add_spaced_sentence("✓ No se encontraron RUTs falsos en la columna.")
     
     def validate_sin_valores_nulos(self, column_name, _):
-        return self.df[column_name].isnull().sum() == 0
+        print("Validando valores nulos...")
+        self.informe.add_heading("Validación de valores nulos")
+        self.informe.add_spaced_sentence(f"Número de valores nulos en la columna: {self.df[column_name].isnull().sum():,}".replace(",", "."))
+    
+
     
     def validate_mayor_igual_a(self, column_name, value):
         menores = self.df[column_name][self.df[column_name] < float(value)].tolist()
