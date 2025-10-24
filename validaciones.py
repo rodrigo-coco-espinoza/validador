@@ -21,7 +21,11 @@ class Validador:
         # Cargar archivos y obtener datos
         self.filename = self.file_path.split("/")[-1].rsplit(".", 1)[0]
         self.folder_path = "/".join(self.file_path.split("/")[:-1])
-        self.df = file_selector.load_file(self.file_path)     
+        self.df = file_selector.load_file(self.file_path)
+        
+        # Limpiar nombres de columnas (quitar BOM y espacios)
+        self.df.columns = [col.strip().lstrip('\ufeff').lstrip('ï»¿') for col in self.df.columns]
+        
         self.ruts_prueba = file_selector.load_file(self.ruts_prueba_path)
         self.validations = file_selector.load_validations(self.validation_path)
         
@@ -57,6 +61,29 @@ class Validador:
         
         return function, param
 
+    def _check_column_exists(self, column_name, validation_name="validación"):
+        """
+        Verifica si una columna existe en el DataFrame.
+        Returns:
+            bool: True si la columna existe, False en caso contrario.
+        """
+        if column_name not in self.df.columns:
+            print(f"❌ Error: La columna '{column_name}' no existe en el archivo")
+            print(f"📋 Columnas disponibles: {list(self.df.columns)}")
+            
+            # Buscar columnas similares
+            similares = [col for col in self.df.columns if column_name.lower() in col.lower() or col.lower() in column_name.lower()]
+            if similares:
+                print(f"🔍 Columnas similares encontradas: {similares}")
+                
+            self.informe.add_heading(f"Error en {validation_name}")
+            self.informe.add_spaced_sentence(f"La columna '{column_name}' no existe en el archivo.", red=True)
+            self.informe.add_sentence(f"Columnas disponibles: {', '.join(self.df.columns)}")
+            if similares:
+                self.informe.add_sentence(f"Columnas similares: {', '.join(similares)}")
+            return False
+        return True
+
     # Funciones generales (archivo completo)
     def describir_archivo(self):
         """
@@ -79,6 +106,10 @@ class Validador:
         """
 
         print(f"Describiendo columna de RUTs: {column_name}")
+        
+        # Verificar si la columna existe
+        if not self._check_column_exists(column_name, "descripción de RUTs"):
+            return
 
         self.informe.add_heading(f"Descripción de la columna de RUTs: {column_name}")
         num_unique_ruts = self.df[column_name].nunique()
@@ -236,6 +267,10 @@ class Validador:
 
         print(f"Validando tipo de dato de la columna {column_name}...")
         
+        # Verificar si la columna existe
+        if not self._check_column_exists(column_name, "validación de tipo de dato"):
+            return False
+        
         if expected_type not in ["texto", "entero", "decimal", "fecha"]:
             raise ValueError("Tipo de dato no válido.")
 
@@ -275,6 +310,11 @@ class Validador:
             list: Lista de RUTs que están en el archivo de RUTs de prueba.
         """
         print("Validando RUTs falsos...")
+        
+        # Verificar si la columna existe
+        if not self._check_column_exists(column_name, "validación de RUTs falsos"):
+            return
+        
         if not pd.api.types.is_integer_dtype(self.df[column_name]):
             raise TypeError("La columna no es numérica.")
         
@@ -314,24 +354,35 @@ class Validador:
     
     def validate_sin_valores_nulos(self, column_name, _):
         print("Validando valores nulos...")
+        
+        # Verificar si la columna existe
+        if not self._check_column_exists(column_name, "validación de valores nulos"):
+            return
+            
         self.informe.add_heading("Validación de valores nulos")
         self.informe.add_spaced_sentence(f"Número de valores nulos en la columna: {self.df[column_name].isnull().sum():,}".replace(",", "."))
     
 
     
     def validate_mayor_igual_a(self, column_name, value):
+        if not self._check_column_exists(column_name, "validación mayor igual a"):
+            return False
         menores = self.df[column_name][self.df[column_name] < float(value)].tolist()
         if menores:
             return menores
         return True
     
     def validate_menor_igual_a(self, column_name, value):
+        if not self._check_column_exists(column_name, "validación menor igual a"):
+            return False
         mayores = self.df[column_name][self.df[column_name] > float(value)].tolist()
         if mayores:
             return mayores
         return True
 
     def validate_sin_valores_repetidos(self, column_name, _):
+        if not self._check_column_exists(column_name, "validación sin valores repetidos"):
+            return False
         repetidos = self.df[column_name][self.df[column_name].duplicated()].tolist()
         if repetidos:
             return list(set(repetidos))
@@ -346,6 +397,10 @@ class Validador:
         Returns:
             Agrega un mensaje al informe indicando si todos los valores pertenecen a las categorías esperadas.
         """
+        # Verificar si la columna existe
+        if not self._check_column_exists(column_name, "validación de categorías"):
+            return
+            
         self.informe.add_heading(f"Validación de categorías en columna '{column_name}'")
         
         # Separar y limpiar las categorías
